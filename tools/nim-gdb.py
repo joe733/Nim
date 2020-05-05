@@ -74,17 +74,16 @@ class NimTypeRecognizer:
       tname = type_obj.name
 
     # handle pointer types
-    if not tname:
-      if type_obj.code == gdb.TYPE_CODE_PTR:
-        target_type = type_obj.target()
-        target_type_name = target_type.name
-        if target_type_name:
-          # visualize 'string' as non pointer type (unpack pointer type).
-          if target_type_name == "NimStringDesc":
-            tname = target_type_name # could also just return 'string'
-          # visualize 'seq[T]' as non pointer type.
-          if target_type_name.find('tySequence_') == 0:
-            tname = target_type_name
+    if not tname and type_obj.code == gdb.TYPE_CODE_PTR:
+      target_type = type_obj.target()
+      target_type_name = target_type.name
+      if target_type_name:
+        # visualize 'string' as non pointer type (unpack pointer type).
+        if target_type_name == "NimStringDesc":
+          tname = target_type_name # could also just return 'string'
+        # visualize 'seq[T]' as non pointer type.
+        if target_type_name.find('tySequence_') == 0:
+          tname = target_type_name
 
     if not tname:
       # We are not resposible for this type printing.
@@ -357,12 +356,12 @@ def reprEnum(e, typ):
   # 1 << 2 is {ntfEnumHole}
   if ((1 << 2) & flags) == 0:
     o = e - int(n["sons"][0]["offset"])
-    if o >= 0 and 0 < int(n["len"]):
+    if o >= 0 and int(n["len"]) > 0:
       return n["sons"][o]["name"].string("utf-8", "ignore")
   else:
     # ugh we need a slow linear search:
     s = n["sons"]
-    for i in range(0, int(n["len"])):
+    for i in range(int(n["len"])):
       if int(s[i]["offset"]) == e:
         return s[i]["name"].string("utf-8", "ignore")
 
@@ -409,20 +408,19 @@ class NimSetPrinter:
       printErrorOnce(typeInfoName, "NimSetPrinter: lookup global symbol '"+ typeInfoName +" failed for " + self.val.type.name + ".\n")
 
   def to_string(self):
-    if self.nti:
-      nti = self.nti.value(gdb.newest_frame())
-      enumStrings = []
-      val = int(self.val)
-      i   = 0
-      while val > 0:
-        if (val & 1) == 1:
-          enumStrings.append(reprEnum(i, nti))
-        val = val >> 1
-        i += 1
-
-      return '{' + ', '.join(enumStrings) + '}'
-    else:
+    if not self.nti:
       return str(int(self.val))
+    nti = self.nti.value(gdb.newest_frame())
+    enumStrings = []
+    val = int(self.val)
+    i   = 0
+    while val > 0:
+      if (val & 1) == 1:
+        enumStrings.append(reprEnum(i, nti))
+      val >>= 1
+      i += 1
+
+    return '{' + ', '.join(enumStrings) + '}'
 
 ################################################################################
 
